@@ -1,0 +1,11 @@
+Windowsta watchdog sorunsuz, comparator class kisimlari haric backend calisiyor 
+
+Database fonksiyonlari hazir
+
+Comparator class doldurulacak
+
+Backend testi comparator ve canli datayla yapilacak
+
+Database class kullanirken fonksiyon icerigini okuyun, isimler yaniltabilir
+
+

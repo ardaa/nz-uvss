@@ -61,6 +61,7 @@ const createWindow = async () => {
     await installExtensions();
   }
 
+
   const RESOURCES_PATH = app.isPackaged
     ? path.join(process.resourcesPath, 'assets')
     : path.join(__dirname, '../../assets');
@@ -69,47 +70,57 @@ const createWindow = async () => {
     return path.join(RESOURCES_PATH, ...paths);
   };
 
-  mainWindow = new BrowserWindow({
-    show: false,
-    width: 1024,
-    height: 728,
-    icon: getAssetPath('icon.png'),
-    webPreferences: {
-      preload: app.isPackaged
-        ? path.join(__dirname, 'preload.js')
-        : path.join(__dirname, '../../.erb/dll/preload.js'),
-    },
-  });
+  var splash = new BrowserWindow({
+    width: 400, 
+    height: 400, 
+    transparent: true, 
+    frame: false, 
+    alwaysOnTop: true 
+});
 
-  mainWindow.loadURL(resolveHtmlPath('index.html'));
+splash.loadURL(`file://${__dirname}/splash.html`);
+splash.center()
 
-  mainWindow.on('ready-to-show', () => {
-    if (!mainWindow) {
-      throw new Error('"mainWindow" is not defined');
-    }
-    if (process.env.START_MINIMIZED) {
-      mainWindow.minimize();
-    } else {
-      mainWindow.show();
-    }
-  });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
 
-  const menuBuilder = new MenuBuilder(mainWindow);
-  menuBuilder.buildMenu();
+mainWindow = new BrowserWindow({
+  show: false,
+  width: 1920,
+  height: 1080,
+  minHeight: 600,
+  minWidth: 1000,
+  icon: getAssetPath('icon.png'),
+  webPreferences: {
+    preload: app.isPackaged
+      ? path.join(__dirname, 'preload.js')
+      : path.join(__dirname, '../../.erb/dll/preload.js'),
+  },
+});
 
-  // Open urls in the user's browser
-  mainWindow.webContents.setWindowOpenHandler((edata) => {
-    shell.openExternal(edata.url);
-    return { action: 'deny' };
-  });
+mainWindow.loadURL(resolveHtmlPath('index.html'));
 
-  // Remove this if your app does not use auto updates
-  // eslint-disable-next-line
-  new AppUpdater();
+mainWindow.setAspectRatio(16 / 9);
+
+
+mainWindow.on('closed', () => {
+  mainWindow = null;
+});
+
+const menuBuilder = new MenuBuilder(mainWindow);
+menuBuilder.buildMenu();
+
+// Open urls in the user's browser
+mainWindow.webContents.setWindowOpenHandler((edata) => {
+  shell.openExternal(edata.url);
+  return { action: 'deny' };
+});
+
+// Remove this if your app does not use auto updates
+// eslint-disable-next-line
+new AppUpdater();
+
+
+
 };
 
 /**
