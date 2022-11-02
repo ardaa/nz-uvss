@@ -14,8 +14,6 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
-require('../messager/main');
-
 
 class AppUpdater {
   constructor() {
@@ -32,10 +30,6 @@ ipcMain.on('ipc-example', async (event, arg) => {
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
-
-process.on('uncaughtException', function (err) {
-  console.log(err);
-})
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -81,26 +75,11 @@ const createWindow = async () => {
     height: 400, 
     transparent: true, 
     frame: false, 
-    alwaysOnTop: false 
+    alwaysOnTop: true 
 });
 
 splash.loadURL(`file://${__dirname}/splash.html`);
 splash.center()
-
-//Work breakdown structure, milestones of the project, project plan, methods for implementing project tasks, required tools for accomplishing project tasks and progress of the project are discussed in this part.
-
-
-//C:\Program Files\HuarayTech\MV Viewer\Development\Samples\Python\uvss_last\Storage\Database\records.db
-if(app.isPackaged){
-const execSync = require("child_process").execSync;
-const response = execSync("wmic csproduct get uuid");
-const serial = String(response).split("\n")[1].replace("-", "").trim().toLowerCase();
-}
-// console.log(serial);
-// console.log(serial !== "475BFA80-5C46-0000-0000-000000000000");
-// if(serial !== "B91E0B4E-95FC-8889-1706-5811224A519D".toLowerCase()){
-//    app.exit(0);
-// }
 
 
 
@@ -111,12 +90,7 @@ mainWindow = new BrowserWindow({
   minHeight: 600,
   minWidth: 1000,
   icon: getAssetPath('icon.png'),
-  autoHideMenuBar: true,
-
   webPreferences: {
-    nodeIntegration: true,
-    contextIsolation: false,
-    webSecurity: false,
     preload: app.isPackaged
       ? path.join(__dirname, 'preload.js')
       : path.join(__dirname, '../../.erb/dll/preload.js'),
@@ -126,19 +100,6 @@ mainWindow = new BrowserWindow({
 mainWindow.loadURL(resolveHtmlPath('index.html'));
 
 mainWindow.setAspectRatio(16 / 9);
-
-splash.close()
-
-mainWindow.on('ready-to-show', () => {
-  if (!mainWindow) {
-    throw new Error('"mainWindow" is not defined');
-  }
-  if (process.env.START_MINIMIZED) {
-    mainWindow.minimize();
-  } else {
-    mainWindow.show();
-  }
-});
 
 
 mainWindow.on('closed', () => {
@@ -154,6 +115,9 @@ mainWindow.webContents.setWindowOpenHandler((edata) => {
   return { action: 'deny' };
 });
 
+// Remove this if your app does not use auto updates
+// eslint-disable-next-line
+new AppUpdater();
 
 
 

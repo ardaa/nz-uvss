@@ -24,15 +24,21 @@ Link as LinkRoute
 } from "react-router-dom";
 import {
   FiHome,
+  FiTrendingUp,
+  FiCompass,
+  FiStar,
   FiSettings,
   FiMenu,
-  FiSearch,
+  FiBell,
+  FiChevronDown,
+  FiCamera,
 } from 'react-icons/fi';
 import { IconType } from 'react-icons';
 import { ReactText } from 'react';
+import InfoBox from 'renderer/components/infoBox';
+import { FcMultipleCameras, FcHighPriority, FcAutomotive, FcSelfServiceKiosk, FcClock } from 'react-icons/fc'
 import icon from '../../../assets/nexizon.png';
 import logo from '../../../assets/icon.png';
-import sendAsync from '../../messager/rerenderer';
 interface LinkItemProps {
   name: string;
   icon: IconType;
@@ -40,7 +46,7 @@ interface LinkItemProps {
 }
 const LinkItems: Array<LinkItemProps> = [
   { name: 'Ana Menü', icon: FiHome, link: '/' },
-  { name: 'Arama', icon: FiSearch, link: '/search' },
+  { name: 'Kameralar', icon: FiCamera, link: '/cameras' },
   { name: 'Ayarlar', icon: FiSettings, link: '/settings' },
 ];
 
@@ -50,7 +56,6 @@ export default function Layout({
   children: ReactNode;
 }) {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  
   return (
     <Box minH="100vh" bg={useColorModeValue('gray.100', 'gray.900')}>
       <SidebarContent
@@ -69,7 +74,8 @@ export default function Layout({
           <SidebarContent onClose={onClose} />
         </DrawerContent>
       </Drawer>
-
+      {/* mobilenav */}
+      <MobileNav onOpen={onOpen} />
       <Box ml={{ base: 0, md: 40 }} overflow='scroll' p="4">
         {children}
       </Box>
@@ -106,7 +112,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       <Flex h="20" alignItems="center" mx="2" my='0' justifyContent="space-around">
         <Image borderRadius={'10'} src={logo} alt="nexizon" w="60px" h="60px" />
         <Text fontSize="xl" fontWeight="bold" color="gray.500">
-          AAGS
+          AGSS
           </Text>
         <CloseButton display={{ base: 'flex', md: 'none' }} onClick={onClose} />
       </Flex>
@@ -173,9 +179,9 @@ interface MobileProps extends FlexProps {
 }
 const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
   const [dateState, setDateState] = useState(new Date());
-  
-  const [totalCarCounter, setTotalCarCounter] = useState(0)
-
+  React.useEffect(() => {
+    setInterval(() => setDateState(new Date()), 1000);
+  }, []);
 
   return (
     <Flex
@@ -199,6 +205,17 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
 
    
 
+      <HStack spacing={{ base: '0', md: '6' }}>
+
+      <InfoBox icon={<FcClock/>} size='xs' title={dateState.toLocaleString('tr-tr')}/>
+      <InfoBox icon={<FcMultipleCameras/>} title={'Aktif Kamera Sayısı'} value={6}/>
+       
+
+       <InfoBox icon={<FcHighPriority/>} title={'Alarm Sayısı'} value={2}/>
+       <InfoBox icon={<FcAutomotive/>} title={'Araç Sayısı'} value={309}/>
+
+        
+      </HStack>
     </Flex>
   );
 };

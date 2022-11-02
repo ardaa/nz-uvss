@@ -47,9 +47,16 @@ import {
 } from 'react-icons/fc';
 import { FaEdit, FaExpand } from 'react-icons/fa';
 import ReactPanZoom from 'react-image-pan-zoom-rotate';
+import sendAsync from '../../messager/rerenderer';
+import useSound from 'use-sound';
 
 export default function MainScreen() {
+  
   //play 'assets/master_warn.mp3'
+
+  const [responses, setResponses] = useState([])
+
+  const [boot, setBoot] = useState(true)
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
@@ -67,14 +74,182 @@ export default function MainScreen() {
     onOpen: onOpenEdit,
     onClose: onCloseEdit,
   } = useDisclosure();
+
+  const {
+    isOpen: isOpenEditColor,
+    onOpen: onOpenEditColor,
+    onClose: onCloseEditColor,
+  } = useDisclosure();
+
+  const [lastRecord, setLastRecord] = useState([{chassis_img: "",
+  color: null,
+  detection: null,
+  front_img: "",
+  id: -1,
+  plate: "Yükleniyor...",
+  plate_img: "",
+  timestamp: 1666551186}])
+
+  let tempRec = [{chassis_img: "",
+  color: null,
+  detection: null,
+  front_img: "",
+  id: -1,
+  plate: "Yükleniyor...",
+  plate_img: "",
+  timestamp: 1666551186}]
+
   const [activeFSImage, setActiveFSImage] = useState(null);
 
   
-  const [activeAlertPlateCam, setActiveAlertPlateCam] = useState(null);
-  const [activeAlertPlate, setActiveAlertPlate] = useState(null);
-  const [activeAlertUnderCam, setActiveAlertUnderCam] = useState(null);
+  const [activeAlert, setActiveAlert] = useState(null);
+
+  const [platePast, setPlatePast] = useState([{}])
 
   const [platePinInput, setPlatePinInput] = useState(true);
+
+  const [viewData, setViewData] = useState({})
+
+  const [cvData, setCVData] = useState([{}])
+  function getPast(sid){
+    sendAsync(`SELECT * 
+    FROM records 
+    WHERE id = ${sid};`).then((result) => {
+      setViewData(result[0])
+    })
+    
+  }
+
+  function plateUpdate(e){
+    sendAsync(`UPDATE records 
+    SET plate = "${e}"
+    WHERE id = ${lastRecord[0]?.id};`).then((result) => {
+        console.log(result)
+        sendAsync(`SELECT * 
+        FROM records 
+        ORDER BY id DESC 
+        LIMIT 5;`).then((result) => {
+          console.log(result, lastRecord)
+ 
+            
+            if(result[0]?.plate !== null){
+              
+          sendAsync(`SELECT *
+          FROM records
+          WHERE plate = "${result[0]?.plate}"
+          ORDER BY id DESC`).then((past)=>{
+
+            setPlatePast(past)
+       
+    
+          }).catch(e=>console.log(e))
+        }
+            setActiveAlert(result[0])
+            setLastRecord(result)
+            onCloseEdit()
+    
+            tempRec = result;
+          
+    
+          
+        }); 
+    }).catch((e)=>console.error(e))
+
+  }
+
+
+  function colorUpdate(e){
+    console.log(e)
+    sendAsync(`UPDATE records 
+    SET color = "${e}"
+    WHERE id = ${lastRecord[0]?.id};`).then((result) => {
+        console.log(result)
+        sendAsync(`SELECT * 
+        FROM records 
+        ORDER BY id DESC 
+        LIMIT 5;`).then((result) => {
+  
+            
+            if(result[0]?.plate !== null){
+              
+          sendAsync(`SELECT *
+          FROM records
+          WHERE plate = "${result[0]?.plate}"
+          ORDER BY id DESC`).then((past)=>{
+            setPlatePast(past)
+            console.log(past)
+    
+          })
+        }
+            setActiveAlert(result[0])
+            setLastRecord(result)
+            onCloseEditColor()
+    
+            tempRec = result;
+          
+    
+          
+        }); 
+    }).catch((e)=>console.error(e))
+
+  }
+
+
+  useEffect(()=>{
+    let first = false;
+    let intervalId = setInterval(()=>{
+
+    
+    sendAsync(`SELECT * 
+    FROM records 
+    ORDER BY id DESC 
+    LIMIT 10;`).then((result) => {
+      console.log(result, lastRecord)
+      if((result[0]?.id!==tempRec[0]?.id&&result[0]?.plate_img!==null&&result[0]?.chassis_img!==null)||!first){
+       
+        if(result[0]?.plate !== null){
+          console.log(result[0]?.plate)
+        sendAsync(`SELECT *
+        FROM records
+        WHERE plate = "${result[0]?.plate}"
+        ORDER BY id DESC`).then((past)=>{
+          setPlatePast(past)
+          console.log(past)
+  
+        }).then(()=>{
+                     
+      if(result[0]?.detection!==null){
+
+   
+        sendAsync(`SELECT * 
+        FROM detections 
+        WHERE id = ${result[0]?.detection} 
+        LIMIT 1;`).then((detres) => {
+          setCVData(detres[0])
+        })
+       
+        setActiveAlert(result[0])
+       
+      }
+ 
+        })
+      }
+                       
+      if(result[0]?.detection!==null&&first){
+        sendAsync('alert').then((res)=>{
+          console.log(res)}).catch(e=>console.log(e))
+      }
+        setLastRecord(result)
+        first = true;
+
+        tempRec = result;
+      }
+
+      
+    });
+  }, 1000)
+  return () => clearInterval(intervalId);
+  },[])
 
   function AlertModal() {
     return (
@@ -85,42 +260,42 @@ export default function MainScreen() {
             <ModalHeader>
               <HStack>
                 <FcHighPriority />
-                <Text>İhlal Tespit Edildi</Text>
+                <Text>Karşılaştırma Tespit Edildi</Text>
               </HStack>
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <HStack h='90%'>
-                <VStack h='90%' w='90%'>
-              <ReactPanZoom
+                <VStack>
+              
+              <Image
                 width={'100%'}
-                height="100%"
-                image="https://s.alicdn.com/@sc01/kf/HTB1K6F7teuSBuNjSsziq6zq8pXaU/200222482/HTB1K6F7teuSBuNjSsziq6zq8pXaU.jpg?quality=close"
+                height="10%"
+                image={activeAlert?.chassis_img}
               />
               <Image
                 width={'100%'}
-                height="100%"
-                src="https://s.alicdn.com/@sc01/kf/HTB1K6F7teuSBuNjSsziq6zq8pXaU/200222482/HTB1K6F7teuSBuNjSsziq6zq8pXaU.jpg?quality=close"
+                height="10%"
+                src={activeAlert?.chassis_img}
               />
              </VStack>
              <VStack>
              <Image
                   width={'100%'}
-                  src="https://s.alicdn.com/@sc01/kf/HTB1z.pktXmWBuNjSspdq6zugXXaD/200222482/HTB1z.pktXmWBuNjSspdq6zugXXaD.jpg?quality=close"
+                  src={activeAlert?.front_img}
                 />
                 <VStack p="4" align={'left'}>
-                  <Text fontSize="xl">İhlal Tarihi: 12.05.2021</Text>
-                  <Text fontSize="xl">İhlal Saati: 12:05</Text>
-                  <Text fontSize="xl">Plaka: 34 NK 343 </Text>
+                  <Text fontSize="xl">Karşılaştırma Tarihi: {new Date(activeAlert?.timestamp * 1000).toLocaleDateString('tr-tr')}</Text>
+                  <Text fontSize="xl">Karşılaştırma Saati: {new Date(activeAlert?.timestamp * 1000).toLocaleTimeString('tr-tr')}</Text>
+                  <Text fontSize="xl">Plaka: {activeAlert?.plate}</Text>
                 </VStack></VStack>
               </HStack>
             </ModalBody>
 
             <ModalFooter>
               <Button colorScheme="blue" mr={3} onClick={onClose}>
-                Close
+                Tamam
               </Button>
-              <Button variant="ghost">Secondary Action</Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
@@ -128,6 +303,8 @@ export default function MainScreen() {
     );
   }
   function EditPlate() {
+  const [changePlate, setChangePlate] = useState(platePast[0]?.plate)
+
     return (
       <>
         <Modal size="6xl" isCentered isOpen={isOpenEdit} onClose={onCloseEdit}>
@@ -144,10 +321,10 @@ export default function MainScreen() {
               <Image
                 width={'100%'}
                 height="35%"
-                src="https://i0.wp.com/www.yelpazeistanbul.com/wp-content/uploads/2021/04/istanbul_plaka_ornegi_34_IST_34.jpg?fit=875%2C200&ssl=1"
+                src={lastRecord[0]?.plate_img}
               />
               {platePinInput? <HStack mt='4' width='100%' align={'center'} justify={'center'} >
-                <PinInput size={'xl'} type='alphanumeric' defaultValue='34IST34'>  
+                <PinInput onChange={(e)=>{setChangePlate(e)}} value={changePlate} size={'xl'} type='alphanumeric' defaultValue={lastRecord[0]?.plate}>  
                   <PinInputField />
                   <PinInputField />
                   <PinInputField />
@@ -162,7 +339,7 @@ export default function MainScreen() {
                   <PinInputField />
                 </PinInput>
               </HStack> : <HStack mt='4' width='100%' align={'center'} justify={'center'} >
-              <Input fontSize={'2xl'} size={'lg'} type='alphanumeric' defaultValue='34IST34' />
+              <Input onChange={(e)=>{setChangePlate(e.target.value)}} fontSize={'2xl'} size={'lg'} type='alphanumeric' defaultValue={lastRecord[0]?.plate} />
               </HStack>}
 
                 <Button mt='2' onClick={()=>setPlatePinInput(!platePinInput)}>{platePinInput?'Özel Plaka':'Standart Plaka'}</Button>
@@ -172,7 +349,37 @@ export default function MainScreen() {
               <Button colorScheme="red" variant="ghost" mr={3} onClick={onCloseEdit}>
                 İptal
               </Button>
-              <Button colorScheme="blue">Kaydet</Button>
+              <Button colorScheme="blue" onClick={()=>{plateUpdate(changePlate)}}>Kaydet</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      </>
+    );
+  }
+  function EditColor() {
+    const [color, setColor] = useState(platePast[0]?.color!==null?platePast[0]?.color:'')
+    return (
+      <>
+        <Modal size="6xl" isCentered isOpen={isOpenEditColor} onClose={onCloseEditColor}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>
+              <HStack>
+                <FcCameraIdentification />
+                <Text>Renk Düzenle</Text>
+              </HStack>
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+            <Input onChange={(e)=>{setColor(e.target.value)}} fontSize={'2xl'} size={'lg'} type='alphanumeric' defaultValue={lastRecord[0]?.color} />
+
+            </ModalBody>
+
+            <ModalFooter>
+            <Button colorScheme="red" variant="ghost" mr={3} onClick={onOpenEditColor}>
+                İptal
+              </Button>
+              <Button colorScheme="blue" onClick={()=>{colorUpdate(color)}}>Kaydet</Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
@@ -194,29 +401,29 @@ export default function MainScreen() {
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <Image
-                width={'100%'}
-                height="95%"
-                src="https://s.alicdn.com/@sc01/kf/HTB1K6F7teuSBuNjSsziq6zq8pXaU/200222482/HTB1K6F7teuSBuNjSsziq6zq8pXaU.jpg?quality=close"
-              />
               <HStack>
+              <Image
+                width={'50%'}
+                height="50%"
+                src={viewData?.chassis_img}
+              />
+              <VStack>
                 <Image
-                  width={'50%'}
-                  src="https://s.alicdn.com/@sc01/kf/HTB1z.pktXmWBuNjSspdq6zugXXaD/200222482/HTB1z.pktXmWBuNjSspdq6zugXXaD.jpg?quality=close"
+                  width={'100%'}
+                  src={viewData?.front_img}
                 />
                 <VStack p="4" align={'left'}>
-                  <Text fontSize="xl">Geçiş Tarihi: 12.05.2021</Text>
-                  <Text fontSize="xl">Geçiş Saati: 12:05</Text>
-                  <Text fontSize="xl">Plaka: 34 NK 343 </Text>
+                <Text fontSize="xl">Geçiş Tarihi: {new Date(viewData?.timestamp * 1000).toLocaleDateString('tr-tr')}</Text>
+                  <Text fontSize="xl">Geçiş Saati: {new Date(viewData?.timestamp * 1000).toLocaleTimeString('tr-tr')}</Text>
+                  <Text fontSize="xl">Plaka: {viewData?.plate}</Text>
                 </VStack>
-              </HStack>
+              </VStack></HStack>
             </ModalBody>
 
             <ModalFooter>
               <Button colorScheme="blue" mr={3} onClick={onCloseView}>
-                Close
+                Kapat
               </Button>
-              <Button variant="ghost">Secondary Action</Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
@@ -234,11 +441,13 @@ export default function MainScreen() {
               <Box
                 display="flex"
                 justifyContent="center"
-                w="100%"
-                h="100%"
+                w="50vh"
+                h="50vh"
                 alignItems="center"
               >
-                <ReactPanZoom image={activeFSImage} alt="Image alt text" />
+                <ReactPanZoom image={activeFSImage}
+                height='100px'
+                alt="Image alt text" />
               </Box>
             </ModalBody>
 
@@ -259,36 +468,50 @@ export default function MainScreen() {
         <FullScreen />
         <PastEventModal />
         <EditPlate />
+        <EditColor />
         <HStack w="100%">
           <InfoBox
             icon={<FcSelfServiceKiosk />}
             title={'Plaka'}
-            value={'06 ABC 06'}
+            value={lastRecord[0]?.plate}
             size={'xl'}
           />
           <InfoBox
             icon={<FcInfo />}
             title={'Renk'}
-            value={'Sarı'}
+            value={lastRecord[0]?.color !== null ? lastRecord[0]?.color: '...' }
             size={'xl'}
           />
 
           <InfoBox
             icon={<FcShipped />}
-            title={'İhlal'}
-            value={'Yok'}
+            title={'Karşılaştırma'}
+            value={lastRecord[0]?.detection!==null?'Var':'Yok'}
             size={'xl'}
           />
 
-          <Box onClick={() => onOpenEdit()}>
+<Box onClick={() => onOpenEdit()}>
             <InfoBox
               icon={<FcEditImage />}
               hover
-              title={'Tespit Edilen Plakayı Düzenle'}
+              title={'Plaka Düzenle'}
               value={''}
               size={'xl'}
+              
             />
-          </Box>
+     </Box>
+
+     <Box  onClick={() => onOpenEditColor()}>
+     
+            <InfoBox
+              icon={<FcEditImage />}
+              hover
+              title={'Renk Düzenle'}
+              value={''}
+              size={'xl'}
+
+            />
+</Box>
         </HStack>
 
         <Grid mt="5" w="100%" templateColumns="repeat(2, 1fr)" gap={6}>
@@ -303,15 +526,16 @@ export default function MainScreen() {
             <Image
               width={'100%'}
               height="90%"
-              src="https://s.alicdn.com/@sc01/kf/HTB1K6F7teuSBuNjSsziq6zq8pXaU/200222482/HTB1K6F7teuSBuNjSsziq6zq8pXaU.jpg?quality=close"
+
+              src={lastRecord[0]?.chassis_img}
             />
             <HStack mt="2" w="100%" justify={'space-between'}>
               <Text>Şasi Kamerası</Text>
-              <Button onClick={() => onOpen()}>Testalert</Button>
+
               <Button
                 onClick={() => {
                   setActiveFSImage(
-                    'https://s.alicdn.com/@sc01/kf/HTB1K6F7teuSBuNjSsziq6zq8pXaU/200222482/HTB1K6F7teuSBuNjSsziq6zq8pXaU.jpg?quality=close'
+                  lastRecord[0]?.chassis_img
                   );
                   onOpenFull();
                 }}
@@ -331,7 +555,7 @@ export default function MainScreen() {
           >
             <Image
               width={'100%'}
-              src="https://s.alicdn.com/@sc01/kf/HTB1z.pktXmWBuNjSspdq6zugXXaD/200222482/HTB1z.pktXmWBuNjSspdq6zugXXaD.jpg?quality=close"
+              src={lastRecord[0]?.front_img}
             />
             <HStack mt="2" w="100%" justify={'space-between'}>
               <Text>Plaka Kamerası</Text>
@@ -339,8 +563,7 @@ export default function MainScreen() {
               <Button
                 onClick={() => {
                   setActiveFSImage(
-                    'https://s.alicdn.com/@sc01/kf/HTB1z.pktXmWBuNjSspdq6zugXXaD/200222482/HTB1z.pktXmWBuNjSspdq6zugXXaD.jpg?quality=close'
-                  );
+                    lastRecord[0]?.front_img  );
                   onOpenFull();
                 }}
               >
@@ -348,130 +571,102 @@ export default function MainScreen() {
               </Button>
             </HStack>
           </Box>
+          </Grid>
+          <Box
+            w="100%"
+            h="100%"
+            p="2"
+            mt='4'
+            bg="gray.300"
+            overflow={'hidden'}
+            borderRadius="md"
+          >
+            <Image
+              width={'100%'}
+              src={cvData?.out_img}
+            />
+            <HStack mt="2" w="100%" justify={'space-between'}>
+              <Text>Karşılaştırma</Text>
+
+              <Button
+                onClick={() => {
+                  setActiveFSImage(cvData?.out_img);
+                  onOpenFull();
+                }}
+              >
+                <FaExpand />
+              </Button>
+            </HStack>
+          </Box> 
+          <Grid mt="5" w="100%" templateColumns="repeat(2, 1fr)" gap={6}>
+
           <Box w="100%" h="100%" bg="gray.300" p="6" borderRadius="md">
-            <Text fontSize="2xl">06 ABC 06 - Geçmiş Hareketler</Text>
+            <Text fontSize="2xl">{lastRecord[0]?.plate} - Geçmiş Hareketler</Text>
             <TableContainer>
               <Table mt="3" size="md">
                 <Thead>
                   <Tr>
                     <Th>Tarih</Th>
-                    <Th>İhlal</Th>
+                    <Th>Karşılaştırma</Th>
                     <Th isNumeric>Görüntüler</Th>
-                  </Tr>
+                  </Tr> 
                 </Thead>
                 <Tbody>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
+                  {typeof platePast === 'object' && platePast.map((e)=>{
+
+                      console.log(e)
+                    return(
+                      <Tr>
+                      <Td>{new Date(e.timestamp * 1000).toLocaleString('tr-Tr')}</Td>
+                      <Td>
+                        <Badge colorScheme={e?.detection!==null?'red':'green'}>{e?.detection!==null?'Var':'Yok'}</Badge>
+                      </Td>
+                      <Td isNumeric>
+                        <Button onClick={()=>{
+                          
+                          setViewData(e)
+                          onOpenView();}}>Görüntüle</Button>
+                      </Td>
+                    </Tr>
+                    )
+                  })}
+                
                 </Tbody>
               </Table>
             </TableContainer>
           </Box>
           <Box w="100%" h="100%" bg="gray.300" p="6" borderRadius="md">
-            <Text fontSize="2xl">Son Araç Hareketler</Text>
+            <Text fontSize="2xl">Son 10 Araç Hareketi</Text>
             <TableContainer>
               <Table mt="3" size="md">
                 <Thead>
                   <Tr>
                     <Th>Tarih</Th>
                     <Th>Plaka</Th>
-                    <Th>İhlal</Th>
+                    <Th>Karşılaştırma</Th>
                     <Th isNumeric>Görüntüler</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>06 ABC 06</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>06 JFK 43</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>35 FDR 443</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>22 DJT 945</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td>{new Date().toLocaleString('tr-Tr')}</Td>
-                    <Td>49 GHB 323</Td>
-                    <Td>
-                      <Badge colorScheme="green">Yok</Badge>
-                    </Td>
-                    <Td isNumeric>
-                      <Button onClick={onOpenView}>Görüntüle</Button>
-                    </Td>
-                  </Tr>
+                  {console.log(lastRecord)}
+                {typeof lastRecord === 'object' &&lastRecord.map((rec)=>{
+           
+                  return(
+                        <Tr>
+                       <Td>{new Date(rec.timestamp*1000).toLocaleString('tr-tr')}</Td>
+                        <Td>{rec?.plate}</Td>
+                        <Td>
+                        <Badge colorScheme={rec?.detection!==null?'red':'green'}>{rec?.detection!==null?'Var':'Yok'}</Badge>
+
+                        </Td>
+                        <Td isNumeric>
+                        <Button onClick={()=>{
+                          setViewData(rec);
+                          onOpenView();}}>Görüntüle</Button>
+                        </Td>
+                      </Tr>)
+                  })}
+               
                 </Tbody>
               </Table>
             </TableContainer>

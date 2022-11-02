@@ -7,7 +7,7 @@ import { Box, ChakraProvider, Flex, Text, VStack, extendTheme} from '@chakra-ui/
 import {FiLink, FiRefreshCcw} from 'react-icons/fi'
 
 import MainScreen from './screens/Main.js';
-import Search from './screens/Search';
+import CamScreen from './screens/Cams';
 import Settings from './screens/Settings';
 
 const theme = extendTheme({
@@ -37,7 +37,7 @@ export default function App() {
     <ChakraProvider theme={theme}>
     <Router>
       <Routes>
-        <Route path="/search" element={<Search />} />
+        <Route path="/cameras" element={<CamScreen />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/" element={<MainScreen />} />
 

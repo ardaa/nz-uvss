@@ -11,14 +11,6 @@
     "hot",
     "reload"
   ],
-  "homepage": "https://github.com/electron-react-boilerplate/electron-react-boilerplate#readme",
-  "bugs": {
-    "url": "https://github.com/electron-react-boilerplate/electron-react-boilerplate/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/electron-react-boilerplate/electron-react-boilerplate.git"
-  },
   "license": "MIT",
   "author": {
     "name": "Nexizon"
@@ -30,7 +22,7 @@
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
     "postinstall": "ts-node .erb/scripts/check-native-dep.js && electron-builder install-app-deps && cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
-    "package": "ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish never",
+    "package": "ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build -w --x64 --publish never",
     "prepare": "husky install",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
     "start": "ts-node ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
@@ -39,7 +31,7 @@
     "start:renderer": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
     "test": "jest",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder -w --x64"
+    "dist": "electron-builder -w --x64 --publish never"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -114,11 +106,15 @@
     "framer-motion": "^7.6.1",
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
+    "pg": "^8.8.0",
     "react": "^18.2.0",
+    "react-datepicker": "^4.8.0",
     "react-dom": "^18.2.0",
     "react-icons": "^4.6.0",
     "react-image-pan-zoom-rotate": "^1.6.0",
-    "react-router-dom": "^6.3.0"
+    "react-router-dom": "^6.3.0",
+    "sound-play": "^1.1.0",
+    "use-sound": "^4.0.1"
   },
   "devDependencies": {
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.7",
@@ -192,6 +188,9 @@
     "productName": "Araç Altı Görüntüleme Sistemi",
     "appId": "org.nexizon.AAGS",
     "asar": true,
+    "extraMetadata": {
+      "version": "1.0.2"
+    },
     "asarUnpack": "**\\*.{node,dll}",
     "files": [
       "dist",
@@ -250,15 +249,7 @@
     },
     "extraResources": [
       "./assets/**"
-    ],
-    "publish": {
-      "provider": "github",
-      "owner": "electron-react-boilerplate",
-      "repo": "electron-react-boilerplate"
-    }
-  },
-  "collective": {
-    "url": "https://opencollective.com/electron-react-boilerplate-594"
+    ]
   },
   "devEngines": {
     "node": ">=14.x",
