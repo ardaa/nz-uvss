@@ -102,9 +102,11 @@
     "electron-first-run": "^3.0.0",
     "electron-log": "^4.4.8",
     "electron-squirrel-startup": "^1.0.0",
+    "electron-store": "^8.1.0",
     "electron-updater": "^5.2.3",
     "framer-motion": "^7.6.1",
     "fs": "^0.0.1-security",
+    "ol": "^7.1.0",
     "path": "^0.12.7",
     "pg": "^8.8.0",
     "react": "^18.2.0",
@@ -114,7 +116,8 @@
     "react-image-pan-zoom-rotate": "^1.6.0",
     "react-router-dom": "^6.3.0",
     "sound-play": "^1.1.0",
-    "use-sound": "^4.0.1"
+    "use-sound": "^4.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.7",
@@ -228,7 +231,11 @@
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": false
+      "perMachine": false,
+      "include": "installer.nsh",
+      "installerSidebar": "installerSidebar.bmp",
+      "uninstallerSidebar": "installerSidebar.bmp",
+      "warningsAsErrors": false
     },
     "win": {
       "target": [

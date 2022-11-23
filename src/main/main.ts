@@ -9,12 +9,15 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, globalShortcut } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+
 require('../messager/main');
+
+const Store = require('electron-store');
 
 
 class AppUpdater {
@@ -76,6 +79,8 @@ const createWindow = async () => {
     return path.join(RESOURCES_PATH, ...paths);
   };
 
+
+
   var splash = new BrowserWindow({
     width: 400, 
     height: 400, 
@@ -101,6 +106,11 @@ const serial = String(response).split("\n")[1].replace("-", "").trim().toLowerCa
 // if(serial !== "B91E0B4E-95FC-8889-1706-5811224A519D".toLowerCase()){
 //    app.exit(0);
 // }
+
+const store = new Store();
+if (store.get('db_ip') === undefined) {
+  store.set('db_ip', '192.168.1.23');
+}
 
 
 
@@ -129,6 +139,7 @@ mainWindow.setAspectRatio(16 / 9);
 
 splash.close()
 
+
 mainWindow.on('ready-to-show', () => {
   if (!mainWindow) {
     throw new Error('"mainWindow" is not defined');
@@ -140,6 +151,9 @@ mainWindow.on('ready-to-show', () => {
   }
 });
 
+const ret = globalShortcut.register('F11', () => {
+  mainWindow?.webContents.openDevTools()
+})  
 
 mainWindow.on('closed', () => {
   mainWindow = null;

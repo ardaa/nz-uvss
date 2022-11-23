@@ -1,5 +1,4 @@
 import { Box, ChakraProvider, Flex, Text, VStack, extendTheme} from '@chakra-ui/react';
-import Layout from '../layouts/layout';
 
 export default function InfoBox({title, value, icon, size, hover, onClick}) {
     return (

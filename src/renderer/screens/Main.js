@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import {
   Box,
   ChakraProvider,
@@ -30,9 +30,9 @@ import {
   IconButton,
   Input,
   PinInput,
-  PinInputField
+  PinInputField,
+  Select
 } from '@chakra-ui/react';
-import Layout from '../layouts/layout';
 import InfoBox from 'renderer/components/infoBox';
 import {
   FcMultipleCameras,
@@ -49,6 +49,11 @@ import { FaEdit, FaExpand } from 'react-icons/fa';
 import ReactPanZoom from 'react-image-pan-zoom-rotate';
 import sendAsync from '../../messager/rerenderer';
 import useSound from 'use-sound';
+
+
+import Gate from 'renderer/gateContext';
+import Fs from 'renderer/components/Fullscreen';
+
 
 export default function MainScreen() {
   
@@ -83,7 +88,7 @@ export default function MainScreen() {
 
   const [lastRecord, setLastRecord] = useState([{chassis_img: "",
   color: null,
-  detection: null,
+  detection_id: null,
   front_img: "",
   id: -1,
   plate: "Yükleniyor...",
@@ -92,12 +97,18 @@ export default function MainScreen() {
 
   let tempRec = [{chassis_img: "",
   color: null,
-  detection: null,
+  detection_id: null,
   front_img: "",
   id: -1,
   plate: "Yükleniyor...",
   plate_img: "",
   timestamp: 1666551186}]
+
+  //gate
+  const gate = useContext(Gate);
+
+  console.log(gate)
+  
 
   const [activeFSImage, setActiveFSImage] = useState(null);
 
@@ -121,8 +132,9 @@ export default function MainScreen() {
   }
 
   function plateUpdate(e){
+    e = e.toUpperCase()
     sendAsync(`UPDATE records 
-    SET plate = "${e}"
+    SET plate = '${e}'
     WHERE id = ${lastRecord[0]?.id};`).then((result) => {
         console.log(result)
         sendAsync(`SELECT * 
@@ -136,7 +148,7 @@ export default function MainScreen() {
               
           sendAsync(`SELECT *
           FROM records
-          WHERE plate = "${result[0]?.plate}"
+          WHERE plate = '${result[0]?.plate}'
           ORDER BY id DESC`).then((past)=>{
 
             setPlatePast(past)
@@ -161,7 +173,7 @@ export default function MainScreen() {
   function colorUpdate(e){
     console.log(e)
     sendAsync(`UPDATE records 
-    SET color = "${e}"
+    SET color = '${e}'
     WHERE id = ${lastRecord[0]?.id};`).then((result) => {
         console.log(result)
         sendAsync(`SELECT * 
@@ -174,7 +186,7 @@ export default function MainScreen() {
               
           sendAsync(`SELECT *
           FROM records
-          WHERE plate = "${result[0]?.plate}"
+          WHERE plate = '${result[0]?.plate}'
           ORDER BY id DESC`).then((past)=>{
             setPlatePast(past)
             console.log(past)
@@ -199,33 +211,44 @@ export default function MainScreen() {
     let first = false;
     let intervalId = setInterval(()=>{
 
+    //get id of active gate
+    let activeGate = gate.gate.filter((g)=>g.isSelected === true)?.gate_id
+    console.log(activeGate)
     
     sendAsync(`SELECT * 
     FROM records 
+    WHERE gate_id = ${activeGate !== undefined ? activeGate : 'gate_id'}
     ORDER BY id DESC 
-    LIMIT 10;`).then((result) => {
+    LIMIT 100;`).then((result) => {
       console.log(result, lastRecord)
-      if((result[0]?.id!==tempRec[0]?.id&&result[0]?.plate_img!==null&&result[0]?.chassis_img!==null)||!first){
+      
+      
+      if((result!==[]&&(result[0]?.id!==tempRec[0]?.id)||!first)||result[0]?.detection_id!==tempRec[0].detection_id){
+        //play mp3
+        
        
         if(result[0]?.plate !== null){
           console.log(result[0]?.plate)
         sendAsync(`SELECT *
         FROM records
-        WHERE plate = "${result[0]?.plate}"
+        WHERE plate = '${result[0]?.plate}'
         ORDER BY id DESC`).then((past)=>{
           setPlatePast(past)
           console.log(past)
   
         }).then(()=>{
                      
-      if(result[0]?.detection!==null){
+      if(result[0]?.detection_id!==null){
 
    
         sendAsync(`SELECT * 
         FROM detections 
-        WHERE id = ${result[0]?.detection} 
+        WHERE id = ${result[0]?.detection_id} 
         LIMIT 1;`).then((detres) => {
+          if(detres!==undefined){
+            console.log(detres)
           setCVData(detres[0])
+          }
         })
        
         setActiveAlert(result[0])
@@ -235,14 +258,46 @@ export default function MainScreen() {
         })
       }
                        
-      if(result[0]?.detection!==null&&first){
-        sendAsync('alert').then((res)=>{
-          console.log(res)}).catch(e=>console.log(e))
+    if(first&&result[0]?.detection_id!==null){
+        sendAsync(`alert`).then((past)=>{
+          console.log(past)
+        })
+        onOpen()
+        
       }
+
         setLastRecord(result)
         first = true;
 
         tempRec = result;
+      }else if((result[0]?.detection_id !== tempRec[0]?.detection_id)&&first&&result[0]?.detection_id!==null&&result[0]?.detection_id!==undefined){
+        
+
+          sendAsync(`SELECT * 
+          FROM detections 
+          WHERE id = ${result[0]?.detection_id} 
+          LIMIT 1;`).then((detres) => {
+            if(detres!==undefined){
+              console.log(detres)
+            setCVData(detres[0])
+            setLastRecord(result)
+            }
+          })
+         
+         
+        
+        setActiveAlert(result[0])
+        sendAsync(`alert`).then((past)=>{
+          console.log(past)
+        })
+        onOpen()
+        tempRec = result;
+        
+      }
+      else if(result[0]?.plate_img!==tempRec[0]?.plate_img||result[0]?.chassis_img!==tempRec[0]?.chassis_img||result[0]?.front_img!==tempRec[0]?.front_img){
+        
+        tempRec = result;
+        setLastRecord(result)
       }
 
       
@@ -266,19 +321,15 @@ export default function MainScreen() {
             <ModalCloseButton />
             <ModalBody>
               <HStack h='90%'>
-                <VStack>
+               
               
               <Image
                 width={'100%'}
-                height="10%"
-                image={activeAlert?.chassis_img}
+                height="40%"
+                src={cvData?.output_img}
               />
-              <Image
-                width={'100%'}
-                height="10%"
-                src={activeAlert?.chassis_img}
-              />
-             </VStack>
+              
+       
              <VStack>
              <Image
                   width={'100%'}
@@ -357,7 +408,7 @@ export default function MainScreen() {
     );
   }
   function EditColor() {
-    const [color, setColor] = useState(platePast[0]?.color!==null?platePast[0]?.color:'')
+    const [color, setColor] = useState(platePast[0]?.color!==null?platePast[0]?.color?.toLocaleUpperCase('tr-tr'):'')
     return (
       <>
         <Modal size="6xl" isCentered isOpen={isOpenEditColor} onClose={onCloseEditColor}>
@@ -371,8 +422,24 @@ export default function MainScreen() {
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-            <Input onChange={(e)=>{setColor(e.target.value)}} fontSize={'2xl'} size={'lg'} type='alphanumeric' defaultValue={lastRecord[0]?.color} />
+            <Select onChange={(e)=>{setColor(e.target.value)}} value={color} placeholder="Renk Seçiniz" size={'lg'} fontSize='2xl' width={'100%'}>
+              <option value="BEYAZ">BEYAZ</option>
+              <option value="SİYAH">SİYAH</option>
+              <option value="KIRMIZI">KIRMIZI</option>
+              <option value="YEŞİL">YEŞİL</option>
+              <option value="MAVİ">MAVİ</option>
+              <option value="SARI">SARI</option>
+              <option value="TURUNCU">TURUNCU</option>
+              <option value="GRI">GRI</option>
+              <option value="TURKUAZ">TURKUAZ</option>
+              <option value="PEMBE">PEMBE</option>
+              <option value="MOR">MOR</option>
+              <option value="BILINMEYEN">DIGER / BILINMEYEN</option>
+              </Select>
 
+
+
+  
             </ModalBody>
 
             <ModalFooter>
@@ -438,20 +505,16 @@ export default function MainScreen() {
           <ModalOverlay />
           <ModalContent>
             <ModalBody>
-              <Box
-                display="flex"
-                justifyContent="center"
-                w="50vh"
-                h="50vh"
-                alignItems="center"
-              >
-                <ReactPanZoom image={activeFSImage}
-                height='100px'
-                alt="Image alt text" />
-              </Box>
+             
+     
+                <Fs sourceURI={activeFSImage}/>
+   
             </ModalBody>
 
             <ModalFooter>
+              <Text fontSize="xl" mr='4'>Alan seçerek büyütmek için Shift tuşuna basılı tutarak fareyi kullanın.</Text>
+         
+            <Button mr={3}><a href={activeFSImage} download={activeFSImage?.split('\\').reverse()[0]}>Kaydet</a></Button>
               <Button colorScheme="blue" mr={3} onClick={onCloseFull}>
                 Kapat
               </Button>
@@ -462,217 +525,250 @@ export default function MainScreen() {
     );
   }
   return (
-    <Layout>
-      <Box>
-        <AlertModal />
-        <FullScreen />
-        <PastEventModal />
-        <EditPlate />
-        <EditColor />
-        <HStack w="100%">
+
+    <Box>
+      <AlertModal />
+      <FullScreen />
+      <PastEventModal />
+      <EditPlate />
+      <EditColor />
+      <HStack w="100%">
+        <InfoBox
+          icon={<FcSelfServiceKiosk />}
+          title={'Plaka'}
+          value={lastRecord[0]?.plate}
+          size={'xl'}
+        />
+        <InfoBox
+          icon={<FcInfo />}
+          title={'Renk'}
+          value={lastRecord[0]?.color !== null ? lastRecord[0]?.color: '...' }
+          size={'xl'}
+        />
+
+        <InfoBox
+          icon={<FcShipped />}
+          title={'Karşılaştırma'}
+          value={lastRecord[0]?.detection_id!==null?'Var':'Yok'}
+          size={'xl'}
+        />
+
+<Box onClick={() => 
+
+onOpenEdit()}>
           <InfoBox
-            icon={<FcSelfServiceKiosk />}
-            title={'Plaka'}
-            value={lastRecord[0]?.plate}
+            icon={<FcEditImage />}
+            hover
+            title={'Plaka Düzenle'}
+            value={''}
             size={'xl'}
+            
           />
+   </Box>
+
+   <Box  onClick={() => {onOpenEditColor()}}>
+   
           <InfoBox
-            icon={<FcInfo />}
-            title={'Renk'}
-            value={lastRecord[0]?.color !== null ? lastRecord[0]?.color: '...' }
+            icon={<FcEditImage />}
+            hover
+            title={'Renk Düzenle'}
+            value={''}
             size={'xl'}
+
           />
-
-          <InfoBox
-            icon={<FcShipped />}
-            title={'Karşılaştırma'}
-            value={lastRecord[0]?.detection!==null?'Var':'Yok'}
-            size={'xl'}
-          />
-
-<Box onClick={() => onOpenEdit()}>
-            <InfoBox
-              icon={<FcEditImage />}
-              hover
-              title={'Plaka Düzenle'}
-              value={''}
-              size={'xl'}
-              
-            />
-     </Box>
-
-     <Box  onClick={() => onOpenEditColor()}>
-     
-            <InfoBox
-              icon={<FcEditImage />}
-              hover
-              title={'Renk Düzenle'}
-              value={''}
-              size={'xl'}
-
-            />
 </Box>
-        </HStack>
+      </HStack>
+      <Box
+          w="100%"
+          h="100%"
+          p="2"
+          mt='3'
+          bg="gray.300"
+          overflow={'hidden'}
+          borderRadius="md"
+        >
+          <Image
+            width={'100%'}
+            height="40vh"
 
+            src={lastRecord[0]?.chassis_img}
+          />
+          <HStack mt="2" w="100%" justify={'space-between'}>
+            <Text>Şasi Kamerası</Text>
+
+            <Button
+              onClick={() => {
+                setActiveFSImage(
+                lastRecord[0]?.chassis_img
+                );
+                onOpenFull();
+              }}
+            >
+              <FaExpand />
+            </Button>
+          </HStack>
+        </Box>
+      <Grid mt="5" w="100%" templateColumns="repeat(2, 1fr)" gap={6}>
+        <Box
+          w="100%"
+          h="100%"
+          p="2"
+          pb="4"
+          bg="gray.300"
+          overflow={'hidden'}
+          borderRadius="md"
+        >
+          <Image
+            width={'100%'}
+            height="80%"
+
+            src={lastRecord[0]?.plate_img}
+          />
+          <HStack mt="2" w="100%" justify={'space-between'}>
+            <Text>Plaka</Text>
+
+            <Button
+              onClick={() => {
+                setActiveFSImage(
+                lastRecord[0]?.plate_img
+                );
+                onOpenFull();
+              }}
+            >
+              <FaExpand />
+            </Button>
+          </HStack>
+        </Box>
+
+        <Box
+          w="100%"
+          h="100%"
+          p="2"
+          bg="gray.300"
+          overflow={'hidden'}
+          borderRadius="md"
+        >
+          <Image
+            width={'100%'}
+            src={lastRecord[0]?.front_img}
+          />
+          <HStack mt="2" w="100%" justify={'space-between'}>
+            <Text>Plaka Kamerası</Text>
+
+            <Button
+              onClick={() => {
+                setActiveFSImage(
+                  lastRecord[0]?.front_img  );
+                onOpenFull();
+              }}
+            >
+              <FaExpand />
+            </Button>
+          </HStack>
+        </Box>
+        </Grid>
+        <Box
+          w="100%"
+          h="100%"
+          p="2"
+          mt='4'
+          bg="gray.300"
+          overflow={'hidden'}
+          borderRadius="md"
+        >
+          <Text fontSize="xl" fontWeight="bold" mb="2">
+          </Text>
+          <Image
+            width={'100%'}
+            src={cvData?.output_img}
+          />
+          <HStack mt="2" w="100%" justify={'space-between'}>
+            <Text>Karşılaştırma</Text>
+
+            <Button
+              onClick={() => {
+                setActiveFSImage(cvData?.output_img);
+                onOpenFull();
+              }}
+            >
+              <FaExpand />
+            </Button>
+          </HStack>
+        </Box> 
         <Grid mt="5" w="100%" templateColumns="repeat(2, 1fr)" gap={6}>
-          <Box
-            w="100%"
-            h="100%"
-            p="2"
-            bg="gray.300"
-            overflow={'hidden'}
-            borderRadius="md"
-          >
-            <Image
-              width={'100%'}
-              height="90%"
 
-              src={lastRecord[0]?.chassis_img}
-            />
-            <HStack mt="2" w="100%" justify={'space-between'}>
-              <Text>Şasi Kamerası</Text>
+        <Box w="100%" h="100%" bg="gray.300" p="6" borderRadius="md">
+          <Text fontSize="2xl">{lastRecord[0]?.plate} - Geçmiş Hareketler</Text>
+          <TableContainer>
+            <Table mt="3" size="md">
+              <Thead>
+                <Tr>
+                  <Th>Tarih</Th>
+                  <Th>Karşılaştırma</Th>
+                  <Th isNumeric>Görüntüler</Th>
+                </Tr> 
+              </Thead>
+              <Tbody>
+                {typeof platePast === 'object' && platePast.map((e)=>{
 
-              <Button
-                onClick={() => {
-                  setActiveFSImage(
-                  lastRecord[0]?.chassis_img
-                  );
-                  onOpenFull();
-                }}
-              >
-                <FaExpand />
-              </Button>
-            </HStack>
-          </Box>
-
-          <Box
-            w="100%"
-            h="100%"
-            p="2"
-            bg="gray.300"
-            overflow={'hidden'}
-            borderRadius="md"
-          >
-            <Image
-              width={'100%'}
-              src={lastRecord[0]?.front_img}
-            />
-            <HStack mt="2" w="100%" justify={'space-between'}>
-              <Text>Plaka Kamerası</Text>
-
-              <Button
-                onClick={() => {
-                  setActiveFSImage(
-                    lastRecord[0]?.front_img  );
-                  onOpenFull();
-                }}
-              >
-                <FaExpand />
-              </Button>
-            </HStack>
-          </Box>
-          </Grid>
-          <Box
-            w="100%"
-            h="100%"
-            p="2"
-            mt='4'
-            bg="gray.300"
-            overflow={'hidden'}
-            borderRadius="md"
-          >
-            <Image
-              width={'100%'}
-              src={cvData?.out_img}
-            />
-            <HStack mt="2" w="100%" justify={'space-between'}>
-              <Text>Karşılaştırma</Text>
-
-              <Button
-                onClick={() => {
-                  setActiveFSImage(cvData?.out_img);
-                  onOpenFull();
-                }}
-              >
-                <FaExpand />
-              </Button>
-            </HStack>
-          </Box> 
-          <Grid mt="5" w="100%" templateColumns="repeat(2, 1fr)" gap={6}>
-
-          <Box w="100%" h="100%" bg="gray.300" p="6" borderRadius="md">
-            <Text fontSize="2xl">{lastRecord[0]?.plate} - Geçmiş Hareketler</Text>
-            <TableContainer>
-              <Table mt="3" size="md">
-                <Thead>
-                  <Tr>
-                    <Th>Tarih</Th>
-                    <Th>Karşılaştırma</Th>
-                    <Th isNumeric>Görüntüler</Th>
-                  </Tr> 
-                </Thead>
-                <Tbody>
-                  {typeof platePast === 'object' && platePast.map((e)=>{
-
-                      console.log(e)
-                    return(
+       
+                  return(
+                    <Tr>
+                    <Td>{new Date(e.timestamp * 1000).toLocaleString('tr-Tr')}</Td>
+                    <Td>
+                      <Badge colorScheme={e?.detection_id!==null?'red':'green'}>{e?.detection_id!==null?'Var':'Yok'}</Badge>
+                    </Td>
+                    <Td isNumeric>
+                      <Button onClick={()=>{
+                        
+                        setViewData(e)
+                        onOpenView();}}>Görüntüle</Button>
+                    </Td>
+                  </Tr>
+                  )
+                })}
+              
+              </Tbody>
+            </Table>
+          </TableContainer>
+        </Box>
+        <Box w="100%" h="100%" bg="gray.300" p="6" borderRadius="md">
+          <Text fontSize="2xl">Son 100 Araç Hareketi</Text>
+          <TableContainer>
+            <Table mt="3" size="md">
+              <Thead>
+                <Tr>
+                  <Th>Tarih</Th>
+                  <Th>Plaka</Th>
+                  <Th>Karşılaştırma</Th>
+                  <Th isNumeric>Görüntüler</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+              {typeof lastRecord === 'object' && lastRecord.map((rec)=>{
+         
+                return(
                       <Tr>
-                      <Td>{new Date(e.timestamp * 1000).toLocaleString('tr-Tr')}</Td>
+                     <Td>{new Date(rec.timestamp*1000).toLocaleString('tr-tr')}</Td>
+                      <Td>{rec?.plate}</Td>
                       <Td>
-                        <Badge colorScheme={e?.detection!==null?'red':'green'}>{e?.detection!==null?'Var':'Yok'}</Badge>
+                      <Badge colorScheme={rec?.detection_id!==null?'red':'green'}>{rec?.detection_id!==null?'Var':'Yok'}</Badge>
+
                       </Td>
                       <Td isNumeric>
-                        <Button onClick={()=>{
-                          
-                          setViewData(e)
-                          onOpenView();}}>Görüntüle</Button>
+                      <Button onClick={()=>{
+                        setViewData(rec);
+                        onOpenView();}}>Görüntüle</Button>
                       </Td>
-                    </Tr>
-                    )
-                  })}
-                
-                </Tbody>
-              </Table>
-            </TableContainer>
-          </Box>
-          <Box w="100%" h="100%" bg="gray.300" p="6" borderRadius="md">
-            <Text fontSize="2xl">Son 10 Araç Hareketi</Text>
-            <TableContainer>
-              <Table mt="3" size="md">
-                <Thead>
-                  <Tr>
-                    <Th>Tarih</Th>
-                    <Th>Plaka</Th>
-                    <Th>Karşılaştırma</Th>
-                    <Th isNumeric>Görüntüler</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {console.log(lastRecord)}
-                {typeof lastRecord === 'object' &&lastRecord.map((rec)=>{
-           
-                  return(
-                        <Tr>
-                       <Td>{new Date(rec.timestamp*1000).toLocaleString('tr-tr')}</Td>
-                        <Td>{rec?.plate}</Td>
-                        <Td>
-                        <Badge colorScheme={rec?.detection!==null?'red':'green'}>{rec?.detection!==null?'Var':'Yok'}</Badge>
+                    </Tr>)
+                })}
+             
+              </Tbody>
+            </Table>
+          </TableContainer>
+        </Box>
+      </Grid>
+    </Box>
 
-                        </Td>
-                        <Td isNumeric>
-                        <Button onClick={()=>{
-                          setViewData(rec);
-                          onOpenView();}}>Görüntüle</Button>
-                        </Td>
-                      </Tr>)
-                  })}
-               
-                </Tbody>
-              </Table>
-            </TableContainer>
-          </Box>
-        </Grid>
-      </Box>
-    </Layout>
-  );
+);
 }
